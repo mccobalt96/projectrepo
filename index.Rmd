@@ -1,0 +1,145 @@
+---
+title: "Machine Learning Final Project"
+author: "John McConnell"
+date: "June 10, 2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is the final project for the Practical Machine Learning session of
+the Johns Hopkins University Data Science Specialization.
+
+#Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+##Load Datasets
+
+```{r loadsets}
+
+training_pml_csv = read.csv("pml-training.csv",na.strings = c("NA","#DIV/0!",""))
+testing_pml_csv = read.csv("pml-testing.csv",na.strings = c("NA","#DIV/0!",""))
+dim(training_pml_csv)
+
+```
+
+##Do exploratory work on the data to understand the data.
+
+```{r exploratory}
+
+colnames(training_pml_csv)
+
+str(training_pml_csv)
+
+```
+
+##Prediction Variable - classe
+
+Now gather some information about the prediction variable classe.  According
+to the website the classe variable has five possible values:
+
+Class A - exactly according to the specification
+Class B - technique error:  throwing the elbows to the front 
+Class C - technique error:  lifting the dumbbell only halfway
+Class D - technique error:  lowering the dumbbell only halfway
+Class E - technique error:  throwing the hips to the front
+
+What we are trying to predict is whether the classe predicted by the model
+matches the model.  So, do the features (columns) correctly predict the
+way the person was doing the exercise?
+
+```{r classeinfo}
+
+summary(training_pml_csv$classe)
+
+plot(training_pml_csv$classe,main="Frequency Plot of Classe",xlab="classe",ylab="frequency",col="red")
+
+```
+
+## Load the needed packages!
+
+```{r pkgload}
+library(randomForest)
+library(e1071)
+library(caret)
+set.seed(1701)
+```
+
+##Cleanup/Reduction of Features
+
+The dataset has 160 features/columns which is WAY to many to build a prediction model
+on.  We will now reduce the number of columns.  First, we will remove the first 7 columns
+as they will not provide any value to the model building. Second we will remove
+any columns that have missing values.
+
+```{r cleanup}
+
+clean_training_pml = training_pml_csv[,-(1:7)]
+dim(clean_training_pml)
+
+clean_testing_pml = testing_pml_csv[,-(1:7)]
+dim(clean_testing_pml)
+
+clean_training_pml_noNA = clean_training_pml[,colSums(is.na(clean_training_pml))==0]
+clean_testing_pml_noNA = clean_testing_pml[,colSums(is.na(clean_testing_pml))==0]
+
+dim(clean_training_pml_noNA)
+dim(clean_testing_pml_noNA)
+
+```
+
+##Cross validation
+
+We have now eliminated 100 features (columns) which would not help the model
+building.  With the 53 remaining features we can begin to prep for cross-
+valdiation.
+
+```{r crossvalidation}
+
+sub_samples = createDataPartition(y=clean_training_pml_noNA$classe,p=0.8,list=FALSE)
+trainingSet = clean_training_pml_noNA[sub_samples,]
+testingSet = clean_training_pml_noNA[-sub_samples,]
+dim(trainingSet)
+dim(testingSet)
+
+```
+
+##Model Creation - RandoForest
+
+Now create the model using randomforest as the method.
+
+```{r modelform}
+
+modelPMLrf = randomForest(classe ~ ., data=trainingSet,method="class")
+
+predictionPMLrf = predict(modelPMLrf,testingSet,type="class")
+
+```
+
+##Analysis
+
+Now do a confusion matrix to interpret the model run
+
+```{r modelcheck}
+
+confusionMatrix(predictionPMLrf, testingSet$classe)
+
+```
+
+##Final Predictions on Testing Set
+
+The results are very encouraging!  Now run the model on the actual test set!
+
+```{r finalRun}
+
+finalpredictionPMLrf = predict(modelPMLrf, clean_testing_pml_noNA ,type="class")
+
+finalpredictionPMLrf
+
+```
+
